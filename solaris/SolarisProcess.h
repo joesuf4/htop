@@ -5,7 +5,7 @@
 /*
 htop - SolarisProcess.h
 (C) 2015 Hisham H. Muhammad
-(C) 2017,2018 Guy M. Broome
+(C) 2017-2019 Guy M. Broome
 Released under the GNU GPL, see the COPYING file
 in the source distribution for its full text.
 */
@@ -14,6 +14,7 @@ in the source distribution for its full text.
 #include <zone.h>
 #include <sys/proc.h>
 #include <libproc.h>
+#include <sys/procfs.h>
 
 typedef enum SolarisProcessFields {
    // Add platform-specific fields here, with ids >= 100
@@ -24,7 +25,10 @@ typedef enum SolarisProcessFields {
    POOLID = 104,
    CONTID = 105,
    LWPID = 106,
-   LAST_PROCESSFIELD = 107,
+   DM = 107,
+   PSEC = 108,
+   SOLTTY_NR = 109, 
+   LAST_PROCESSFIELD = 110,
 } SolarisProcessField;
 
 
@@ -41,6 +45,11 @@ typedef struct SolarisProcess_ {
    pid_t      realpid;
    pid_t      realppid;
    pid_t      lwpid;
+   char       dmodel;
+   dev_t      sol_tty_nr;
+#ifdef PRSECFLAGS_VERSION_1
+   secflagset_t esecflags;
+#endif
 } SolarisProcess;
 
 
@@ -51,6 +60,8 @@ typedef struct SolarisProcess_ {
 #ifndef Process_isUserlandThread
 #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
 #endif
+
+#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
 
 
 extern ProcessClass SolarisProcess_class;

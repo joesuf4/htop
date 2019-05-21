@@ -87,13 +87,13 @@ static CommandLineSettings parseArguments(int argc, char** argv) {
       {"no-colour",no_argument,         0, 'C'},
       {"tree",     no_argument,         0, 't'},
       {"pid",      required_argument,   0, 'p'},
-      {"io",       no_argument,         0, 'i'},
       {0,0,0,0}
    };
 
    int opt, opti=0;
    /* Parse arguments */
    while ((opt = getopt_long(argc, argv, "hvCs:td:u:p:i", long_opts, &opti))) {
+   while ((opt = getopt_long(argc, argv, "hvCs:td:u:p:", long_opts, &opti))) {
       if (opt == EOF) break;
       switch (opt) {
          case 'h':
@@ -239,9 +239,9 @@ int main(int argc, char** argv) {
 
    ScreenManager_run(scr, NULL, NULL, NULL);
    
-   attron(CRT_colors[RESET_COLOR]);
+   attron(CRT_colors[COLOR_RESET_COLOR]);
    mvhline(LINES-1, 0, ' ', COLS);
-   attroff(CRT_colors[RESET_COLOR]);
+   attroff(CRT_colors[COLOR_RESET_COLOR]);
    refresh();
    
    CRT_done();

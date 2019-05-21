@@ -2,7 +2,7 @@
 htop - solaris/Platform.c
 (C) 2014 Hisham H. Muhammad
 (C) 2015 David C. Hunt
-(C) 2017,2018 Guy M. Broome
+(C) 2017-2019 Guy M. Broome
 Released under the GNU GPL, see the COPYING file
 in the source distribution for its full text.
 */
@@ -10,7 +10,7 @@ in the source distribution for its full text.
 #include "Platform.h"
 #include "Meter.h"
 #include "CPUMeter.h"
-#include "MemoryMeter.h"
+#include "SolarisMemoryMeter.h"
 #include "SwapMeter.h"
 #include "TasksMeter.h"
 #include "LoadAverageMeter.h"
@@ -35,7 +35,6 @@ in the source distribution for its full text.
 #include "Action.h"
 #include "BatteryMeter.h"
 #include "SignalsPanel.h"
-#include "SolarisProcess.h"
 #include <signal.h>
 #include <sys/mkdev.h>
 #include <sys/proc.h>
@@ -104,22 +103,14 @@ const SignalItem Platform_signals[] = {
 
 const unsigned int Platform_numberOfSignals = sizeof(Platform_signals)/sizeof(SignalItem);
 
-ScreenDefaults Platform_defaultScreens[] = {
-   {
-      .name = "Default",
-      .columns = "PID LWPID USER PRIORITY NICE M_SIZE M_RESIDENT STATE PERCENT_CPU PERCENT_MEM TIME Command",
-      .sortKey = "PERCENT_CPU",
-   },
-};
-
-const unsigned int Platform_numberOfDefaultScreens = sizeof(Platform_defaultScreens)/sizeof(ScreenDefaults);
+ProcessField Platform_defaultFields[] = { PID, LWPID, USER, PRIORITY, NICE, M_SIZE, M_RESIDENT, STATE, PERCENT_CPU, PERCENT_MEM, TIME, COMM, 0 };
 
 MeterClass* Platform_meterTypes[] = {
    &CPUMeter_class,
    &ClockMeter_class,
    &LoadAverageMeter_class,
    &LoadMeter_class,
-   &MemoryMeter_class,
+   &SolarisMemoryMeter_class,
    &SwapMeter_class,
    &TasksMeter_class,
    &BatteryMeter_class,
@@ -217,10 +208,11 @@ double Platform_setCPUValues(Meter* this, int cpu) {
 
 void Platform_setMemoryValues(Meter* this) {
    ProcessList* pl = (ProcessList*) this->pl;
+   SolarisProcessList* spl = (SolarisProcessList*) this->pl;
    this->total = pl->totalMem;
    this->values[0] = pl->usedMem;
-   this->values[1] = pl->buffersMem;
-   this->values[2] = pl->cachedMem;
+   this->values[1] = spl->zmaxmem;
+   this->values[2] = spl->sysusedmem;
 }
 
 void Platform_setSwapValues(Meter* this) {

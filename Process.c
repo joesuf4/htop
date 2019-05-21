@@ -218,18 +218,18 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
    char buffer[11];
    int len;
    
-   int largeNumberColor = CRT_colors[LARGE_NUMBER];
-   int processMegabytesColor = CRT_colors[PROCESS_MEGABYTES];
-   int processColor = CRT_colors[PROCESS];
+   int largeNumberColor = CRT_colors[COLOR_LARGE_NUMBER];
+   int processMegabytesColor = CRT_colors[COLOR_PROCESS_MEGABYTES];
+   int processColor = CRT_colors[COLOR_PROCESS];
    if (!coloring) {
-      largeNumberColor = CRT_colors[PROCESS];
-      processMegabytesColor = CRT_colors[PROCESS];
+      largeNumberColor = CRT_colors[COLOR_PROCESS];
+      processMegabytesColor = CRT_colors[COLOR_PROCESS];
    }
  
    if(number >= (10 * ONE_DECIMAL_M)) {
       #ifdef __LP64__
       if(number >= (100 * ONE_DECIMAL_G)) {
-         len = snprintf(buffer, 10, "%4ldT ", number / ONE_G);
+         len = snprintf(buffer, 10, "%4luT ", number / ONE_G);
          RichString_appendn(str, largeNumberColor, buffer, len);
          return;
       } else if (number >= (1000 * ONE_DECIMAL_M)) {
@@ -239,7 +239,7 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
       }
       #endif
       if(number >= (100 * ONE_DECIMAL_M)) {
-         len = snprintf(buffer, 10, "%4ldG ", number / ONE_M);
+         len = snprintf(buffer, 10, "%4luG ", number / ONE_M);
          RichString_appendn(str, largeNumberColor, buffer, len);
          return;
       }
@@ -247,11 +247,11 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
       RichString_appendn(str, largeNumberColor, buffer, len);
       return;
    } else if (number >= 100000) {
-      len = snprintf(buffer, 10, "%4ldM ", number / ONE_K);
+      len = snprintf(buffer, 10, "%4luM ", number / ONE_K);
       RichString_appendn(str, processMegabytesColor, buffer, len);
       return;
    } else if (number >= 1000) {
-      len = snprintf(buffer, 10, "%2ld", number/1000);
+      len = snprintf(buffer, 10, "%2lu", number/1000);
       RichString_appendn(str, processMegabytesColor, buffer, len);
       number %= 1000;
       len = snprintf(buffer, 10, "%03lu ", number);
@@ -265,21 +265,21 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
 void Process_colorNumber(RichString* str, unsigned long long number, bool coloring) {
    char buffer[14];
 
-   int largeNumberColor = CRT_colors[LARGE_NUMBER];
-   int processMegabytesColor = CRT_colors[PROCESS_MEGABYTES];
-   int processColor = CRT_colors[PROCESS];
-   int processShadowColor = CRT_colors[PROCESS_SHADOW];
+   int largeNumberColor = CRT_colors[COLOR_LARGE_NUMBER];
+   int processMegabytesColor = CRT_colors[COLOR_PROCESS_MEGABYTES];
+   int processColor = CRT_colors[COLOR_PROCESS];
+   int processShadowColor = CRT_colors[COLOR_PROCESS_SHADOW];
    if (!coloring) {
-      largeNumberColor = CRT_colors[PROCESS];
-      processMegabytesColor = CRT_colors[PROCESS];
-      processShadowColor = CRT_colors[PROCESS];
+      largeNumberColor = CRT_colors[COLOR_PROCESS];
+      processMegabytesColor = CRT_colors[COLOR_PROCESS];
+      processShadowColor = CRT_colors[COLOR_PROCESS];
    }
 
    if ((long long) number == -1LL) {
       int len = snprintf(buffer, 13, "    no perm ");
-      RichString_appendn(str, CRT_colors[PROCESS_SHADOW], buffer, len);
+      RichString_appendn(str, CRT_colors[COLOR_PROCESS_SHADOW], buffer, len);
    } else if (number > 10000000000) {
-      xSnprintf(buffer, 13, "%11lld ", number / 1000);
+      xSnprintf(buffer, 13, "%11llu ", number / 1000);
       RichString_appendn(str, largeNumberColor, buffer, 5);
       RichString_appendn(str, processMegabytesColor, buffer+5, 3);
       RichString_appendn(str, processColor, buffer+8, 4);
@@ -302,16 +302,16 @@ void Process_printTime(RichString* str, unsigned long long totalHundredths) {
    char buffer[11];
    if (hours >= 100) {
       xSnprintf(buffer, 10, "%7lluh ", hours);
-      RichString_append(str, CRT_colors[LARGE_NUMBER], buffer);
+      RichString_append(str, CRT_colors[COLOR_LARGE_NUMBER], buffer);
    } else {
       if (hours) {
          xSnprintf(buffer, 10, "%2lluh", hours);
-         RichString_append(str, CRT_colors[LARGE_NUMBER], buffer);
+         RichString_append(str, CRT_colors[COLOR_LARGE_NUMBER], buffer);
          xSnprintf(buffer, 10, "%02d:%02d ", minutes, seconds);
       } else {
          xSnprintf(buffer, 10, "%2d:%02d.%02d ", minutes, seconds, hundredths);
       }
-      RichString_append(str, CRT_colors[DEFAULT_COLOR], buffer);
+      RichString_append(str, CRT_colors[COLOR_DEFAULT_COLOR], buffer);
    }
 }
 
@@ -346,16 +346,16 @@ static inline void Process_writeCommand(Process* this, int attr, int baseattr, R
 }
 
 void Process_outputRate(RichString* str, char* buffer, int n, double rate, int coloring) {
-   int largeNumberColor = CRT_colors[LARGE_NUMBER];
-   int processMegabytesColor = CRT_colors[PROCESS_MEGABYTES];
-   int processColor = CRT_colors[PROCESS];
+   int largeNumberColor = CRT_colors[COLOR_LARGE_NUMBER];
+   int processMegabytesColor = CRT_colors[COLOR_PROCESS_MEGABYTES];
+   int processColor = CRT_colors[COLOR_PROCESS];
    if (!coloring) {
-      largeNumberColor = CRT_colors[PROCESS];
-      processMegabytesColor = CRT_colors[PROCESS];
+      largeNumberColor = CRT_colors[COLOR_PROCESS];
+      processMegabytesColor = CRT_colors[COLOR_PROCESS];
    }
    if (rate == -1) {
       int len = snprintf(buffer, n, "    no perm ");
-      RichString_appendn(str, CRT_colors[PROCESS_SHADOW], buffer, len);
+      RichString_appendn(str, CRT_colors[COLOR_PROCESS_SHADOW], buffer, len);
    } else if (rate < ONE_K) {
       int len = snprintf(buffer, n, "%7.2f B/s ", rate);
       RichString_appendn(str, processColor, buffer, len);
@@ -388,8 +388,8 @@ void Process_printPercentage(float val, char* buffer, int n, int* attr) {
 
 void Process_writeField(Process* this, RichString* str, ProcessField field) {
    char buffer[256]; buffer[255] = '\0';
-   int attr = CRT_colors[DEFAULT_COLOR];
-   int baseattr = CRT_colors[PROCESS_BASENAME];
+   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
+   int baseattr = CRT_colors[COLOR_PROCESS_BASENAME];
    int n = sizeof(buffer) - 1;
    bool coloring = this->settings->highlightMegabytes;
 
@@ -398,8 +398,8 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
    case PERCENT_MEM: Process_printPercentage(this->percent_mem, buffer, n, &attr); break;
    case COMM: {
       if (this->settings->highlightThreads && Process_isThread(this)) {
-         attr = CRT_colors[PROCESS_THREAD];
-         baseattr = CRT_colors[PROCESS_THREAD_BASENAME];
+         attr = CRT_colors[COLOR_PROCESS_THREAD];
+         baseattr = CRT_colors[COLOR_PROCESS_THREAD_BASENAME];
       }
       ScreenSettings* ss = this->settings->ss;
       if (!ss->treeView || this->indent == 0) {
@@ -425,7 +425,7 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
          }
          const char* draw = CRT_treeStr[lastItem ? (ss->direction == 1 ? TREE_STR_BEND : TREE_STR_TEND) : TREE_STR_RTEE];
          xSnprintf(buf, n, "%s%s ", draw, this->showChildren ? CRT_treeStr[TREE_STR_SHUT] : CRT_treeStr[TREE_STR_OPEN] );
-         RichString_append(str, CRT_colors[PROCESS_TREE], buffer);
+         RichString_append(str, CRT_colors[COLOR_PROCESS_TREE], buffer);
          Process_writeCommand(this, attr, baseattr, str);
          return;
       }
@@ -436,8 +436,8 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
    case M_SIZE: Process_humanNumber(str, this->m_size * PAGE_SIZE_KB, coloring); return;
    case NICE: {
       xSnprintf(buffer, n, "%3ld ", this->nice);
-      attr = this->nice < 0 ? CRT_colors[PROCESS_HIGH_PRIORITY]
-           : this->nice > 0 ? CRT_colors[PROCESS_LOW_PRIORITY]
+      attr = this->nice < 0 ? CRT_colors[COLOR_PROCESS_HIGH_PRIORITY]
+           : this->nice > 0 ? CRT_colors[COLOR_PROCESS_LOW_PRIORITY]
            : attr;
       break;
    }
@@ -459,10 +459,10 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
       xSnprintf(buffer, n, "%c ", this->state);
       switch(this->state) {
           case 'R':
-              attr = CRT_colors[PROCESS_R_STATE];
+              attr = CRT_colors[COLOR_PROCESS_R_STATE];
               break;
           case 'D':
-              attr = CRT_colors[PROCESS_D_STATE];
+              attr = CRT_colors[COLOR_PROCESS_D_STATE];
               break;
       }
       break;
@@ -474,7 +474,7 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
    case TTY_NR: xSnprintf(buffer, n, "%3u:%3u ", major(this->tty_nr), minor(this->tty_nr)); break;
    case USER: {
       if (Process_getuid != (int) this->st_uid)
-         attr = CRT_colors[PROCESS_SHADOW];
+         attr = CRT_colors[COLOR_PROCESS_SHADOW];
       if (this->user) {
          xSnprintf(buffer, n, "%-9s ", this->user);
       } else {
@@ -499,9 +499,9 @@ void Process_display(Object* cast, RichString* out) {
    for (int i = 0; fields[i]; i++)
       As_Process(this)->writeField(this, out, fields[i]);
    if (this->settings->shadowOtherUsers && (int)this->st_uid != Process_getuid)
-      RichString_setAttr(out, CRT_colors[PROCESS_SHADOW]);
+      RichString_setAttr(out, CRT_colors[COLOR_PROCESS_SHADOW]);
    if (this->tag == true)
-      RichString_setAttr(out, CRT_colors[PROCESS_TAG]);
+      RichString_setAttr(out, CRT_colors[COLOR_PROCESS_TAG]);
    assert(out->chlen > 0);
 }
 

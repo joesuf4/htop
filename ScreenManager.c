@@ -163,17 +163,17 @@ static void checkRecalculation(ScreenManager* this, double* oldTime, int* sortTi
 }
 
 static inline bool drawTab(int* y, int* x, int l, const char* name, bool cur) {
-   attrset(CRT_colors[cur ? SCREENS_CUR_BORDER : SCREENS_OTH_BORDER]);
+   attrset(CRT_colors[cur ? COLOR_SCREENS_CUR_BORDER : COLOR_SCREENS_OTH_BORDER]);
    mvaddch(*y, *x, '[');
    (*x)++;
    if (*x >= l) return false;
    int nameLen = strlen(name);
    int n = MIN(l - *x, nameLen);
-   attrset(CRT_colors[cur ? SCREENS_CUR_TEXT : SCREENS_OTH_TEXT]);
+   attrset(CRT_colors[cur ? COLOR_SCREENS_CUR_TEXT : COLOR_SCREENS_OTH_TEXT]);
    mvaddnstr(*y, *x, name, n);
    *x += n;
    if (*x >= l) return false;
-   attrset(CRT_colors[cur ? SCREENS_CUR_BORDER : SCREENS_OTH_BORDER]);
+   attrset(CRT_colors[cur ? COLOR_SCREENS_CUR_BORDER : COLOR_SCREENS_OTH_BORDER]);
    mvaddch(*y, *x, ']');
    *x += 2;
    if (*x >= l) return false;
@@ -210,10 +210,8 @@ static void ScreenManager_drawPanels(ScreenManager* this, int focus) {
    for (int i = 0; i < nPanels; i++) {
       Panel* panel = (Panel*) Vector_get(this->panels, i);
       Panel_draw(panel, i == focus);
-      if (i < nPanels) {
-         if (this->orientation == HORIZONTAL) {
-            mvvline(panel->y, panel->x+panel->w, ' ', panel->h+1);
-         }
+      if (this->orientation == HORIZONTAL) {
+         mvvline(panel->y, panel->x+panel->w, ' ', panel->h+1);
       }
    }
 }

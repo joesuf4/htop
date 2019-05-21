@@ -1,11 +1,11 @@
 /*
-htop - MemoryMeter.c
+htop - SolarisMemoryMeter.c
 (C) 2004-2011 Hisham H. Muhammad
 Released under the GNU GPL, see the COPYING file
 in the source distribution for its full text.
 */
 
-#include "MemoryMeter.h"
+#include "SolarisMemoryMeter.h"
 
 #include "CRT.h"
 #include "Platform.h"
@@ -20,11 +20,11 @@ in the source distribution for its full text.
 #include "Meter.h"
 }*/
 
-int MemoryMeter_attributes[] = {
-   COLOR_MEMORY_USED, COLOR_MEMORY_BUFFERS, COLOR_MEMORY_CACHE
+int SolarisMemoryMeter_attributes[] = {
+   COLOR_MEMORY_USED, COLOR_MEMORY_BUFFERS, COLOR_PROCESS_SHADOW
 };
 
-static void MemoryMeter_updateValues(Meter* this, char* buffer, int size) {
+static void SolarisMemoryMeter_updateValues(Meter* this, char* buffer, int size) {
    int written;
    Platform_setMemoryValues(this);
 
@@ -37,7 +37,7 @@ static void MemoryMeter_updateValues(Meter* this, char* buffer, int size) {
    }
 }
 
-static void MemoryMeter_display(Object* cast, RichString* out) {
+static void SolarisMemoryMeter_display(Object* cast, RichString* out) {
    char buffer[50];
    Meter* this = (Meter*)cast;
    RichString_write(out, CRT_colors[COLOR_METER_TEXT], ":");
@@ -47,24 +47,24 @@ static void MemoryMeter_display(Object* cast, RichString* out) {
    RichString_append(out, CRT_colors[COLOR_METER_TEXT], " used:");
    RichString_append(out, CRT_colors[COLOR_MEMORY_USED], buffer);
    Meter_humanUnit(buffer, this->values[1], 50);
-   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " buffers:");
+   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " zone limit:");
    RichString_append(out, CRT_colors[COLOR_MEMORY_BUFFERS_TEXT], buffer);
    Meter_humanUnit(buffer, this->values[2], 50);
-   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " cache:");
-   RichString_append(out, CRT_colors[COLOR_MEMORY_CACHE], buffer);
+   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " system used:");
+   RichString_append(out, CRT_colors[COLOR_PROCESS_SHADOW], buffer);
 }
 
-MeterClass MemoryMeter_class = {
+MeterClass SolarisMemoryMeter_class = {
    .super = {
       .extends = Class(Meter),
       .delete = Meter_delete,
-      .display = MemoryMeter_display,
+      .display = SolarisMemoryMeter_display,
    },
-   .updateValues = MemoryMeter_updateValues, 
+   .updateValues = SolarisMemoryMeter_updateValues,
    .defaultMode = BAR_METERMODE,
    .maxItems = 3,
    .total = 100.0,
-   .attributes = MemoryMeter_attributes,
+   .attributes = SolarisMemoryMeter_attributes,
    .name = "Memory",
    .uiName = "Memory",
    .caption = "Mem"

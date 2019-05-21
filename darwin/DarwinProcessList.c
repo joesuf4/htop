@@ -86,8 +86,6 @@ void ProcessList_freeCPULoadInfo(processor_cpu_load_info_t *p) {
          CRT_fatalError("Unable to free old CPU load information\n");
       }
    }
-
-   *p = NULL;
 }
 
 unsigned ProcessList_allocateCPULoadInfo(processor_cpu_load_info_t *p) {

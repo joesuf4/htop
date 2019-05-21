@@ -126,7 +126,7 @@ static bool search(IncSet* this, Panel* panel, IncMode_GetPanelValue getPanelVal
          break;
       }
    }
-   IncSet_drawBar(this, found ? CRT_colors[FUNCTION_BAR] : CRT_colors[FAILED_SEARCH]);
+   IncSet_drawBar(this, found ? CRT_colors[COLOR_FUNCTION_BAR] : CRT_colors[COLOR_FAILED_SEARCH]);
    return found;
 }
 

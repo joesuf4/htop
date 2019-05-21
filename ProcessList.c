@@ -130,8 +130,8 @@ void ProcessList_printHeader(ProcessList* this, RichString* header) {
       const char* field = Process_fields[key].title;
       if (!field) field = "- ";
       int color = (!this->settings->ss->treeView && this->settings->ss->sortKey == key)
-                ? CRT_colors[PANEL_SELECTION_FOCUS]
-                : CRT_colors[PANEL_HEADER_FOCUS];
+                ? CRT_colors[COLOR_PANEL_SELECTION_FOCUS]
+                : CRT_colors[COLOR_PANEL_HEADER_FOCUS];
       RichString_append(header, color, field);
    }
 }

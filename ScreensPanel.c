@@ -133,7 +133,7 @@ static void startRenaming(Panel* super) {
    this->buffer[SCREEN_NAME_LEN] = '\0';
    this->cursor = strlen(this->buffer);
    item->value = this->buffer;
-   Panel_setSelectionColor(super, CRT_colors[PANEL_EDIT]);
+   Panel_setSelectionColor(super, CRT_colors[COLOR_PANEL_EDIT]);
    super->selectedLen = strlen(this->buffer);
    Panel_setCursorToSelection(super);
 }
