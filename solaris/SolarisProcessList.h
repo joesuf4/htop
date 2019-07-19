@@ -13,6 +13,8 @@ in the source distribution for its full text.
 #define MAXCMDLINE 255
 
 
+#include "zfs/ZfsArcStats.h"
+
 #include <kstat.h>
 #include <sys/param.h>
 #include <sys/uio.h>
@@ -48,6 +50,7 @@ typedef struct SolarisProcessList_ {
    uint_t kbitness;
    char* earch;
    uint_t ebitness;
+   ZfsArcStats zfs;
 } SolarisProcessList;
 
 

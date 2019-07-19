@@ -48,14 +48,17 @@ linux_platform_headers = \
 	linux/LinuxProcess.h \
 	linux/LinuxProcessList.h \
 	linux/LinuxCRT.h \
-	linux/Battery.h
+	linux/Battery.h \
+	zfs/ZfsArcMeter.h \
+	zfs/ZfsArcStats.h
 
 all_platform_headers += $(linux_platform_headers)
 
 if HTOP_LINUX
 AM_CFLAGS += -rdynamic
 myhtopplatsources = linux/Platform.c linux/IOPriorityPanel.c linux/IOPriority.c \
-linux/LinuxProcess.c linux/LinuxProcessList.c linux/LinuxCRT.c linux/Battery.c
+linux/LinuxProcess.c linux/LinuxProcessList.c linux/LinuxCRT.c linux/Battery.c \
+zfs/ZfsArcMeter.c zfs/ZfsArcStats.c
 
 myhtopplatheaders = $(linux_platform_headers)
 endif
@@ -68,13 +71,17 @@ freebsd_platform_headers = \
 	freebsd/FreeBSDProcessList.h \
 	freebsd/FreeBSDProcess.h \
 	freebsd/FreeBSDCRT.h \
-	freebsd/Battery.h
+	freebsd/Battery.h \
+	zfs/ZfsArcMeter.h \
+	zfs/ZfsArcStats.h \
+	zfs/openzfs_sysctl.h
 
 all_platform_headers += $(freebsd_platform_headers)
 
 if HTOP_FREEBSD
 myhtopplatsources = freebsd/Platform.c freebsd/FreeBSDProcessList.c \
-freebsd/FreeBSDProcess.c freebsd/FreeBSDCRT.c freebsd/Battery.c
+freebsd/FreeBSDProcess.c freebsd/FreeBSDCRT.c freebsd/Battery.c \
+zfs/ZfsArcMeter.c zfs/ZfsArcStats.c zfs/openzfs_sysctl.c
 
 myhtopplatheaders = $(freebsd_platform_headers)
 endif
@@ -126,14 +133,18 @@ darwin_platform_headers = \
 	darwin/DarwinProcess.h \
 	darwin/DarwinProcessList.h \
 	darwin/DarwinCRT.h \
-	darwin/Battery.h
+	darwin/Battery.h \
+	zfs/ZfsArcMeter.h \
+	zfs/ZfsArcStats.h \
+	zfs/openzfs_sysctl.h
 
 all_platform_headers += $(darwin_platform_headers)
 
 if HTOP_DARWIN
 AM_LDFLAGS += -framework IOKit -framework CoreFoundation
 myhtopplatsources = darwin/Platform.c darwin/DarwinProcess.c \
-darwin/DarwinProcessList.c darwin/DarwinCRT.c darwin/Battery.c
+darwin/DarwinProcessList.c darwin/DarwinCRT.c darwin/Battery.c \
+zfs/ZfsArcMeter.c zfs/ZfsArcStats.c zfs/openzfs_sysctl.c
 
 myhtopplatheaders = $(darwin_platform_headers)
 endif
@@ -147,7 +158,9 @@ solaris_platform_headers = \
 	solaris/SolarisProcess.h \
 	solaris/SolarisProcessList.h \
 	solaris/SolarisCRT.h \
-	solaris/Battery.h
+	solaris/Battery.h \
+	zfs/ZfsArcMeter.h \
+	zfs/ZfsArcStats.h
 
 all_platform_headers += $(solaris_platform_headers)
 
@@ -155,7 +168,8 @@ if HTOP_SOLARIS
 myhtopplatsources = solaris/Platform.c \
 solaris/SolarisProcess.c solaris/SolarisProcessList.c \
 solaris/SolarisCRT.c solaris/Battery.c \
-solaris/SolarisMemoryMeter.c
+solaris/SolarisMemoryMeter.c \
+zfs/ZfsArcMeter.c zfs/ZfsArcStats.c
 
 myhtopplatheaders = $(solaris_platform_headers)
 endif

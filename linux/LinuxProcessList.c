@@ -46,6 +46,7 @@ in the source distribution for its full text.
 /*{
 
 #include "ProcessList.h"
+#include "zfs/ZfsArcStats.h"
 
 extern long long btime;
 
@@ -94,6 +95,8 @@ typedef struct LinuxProcessList_ {
    struct nl_sock *netlink_socket;
    int netlink_family;
    #endif
+
+   ZfsArcStats zfs;
 } LinuxProcessList;
 
 #ifndef PROCDIR
@@ -106,6 +109,10 @@ typedef struct LinuxProcessList_ {
 
 #ifndef PROCMEMINFOFILE
 #define PROCMEMINFOFILE PROCDIR "/meminfo"
+#endif
+
+#ifndef PROCARCSTATSFILE
+#define PROCARCSTATSFILE PROCDIR "/spl/kstat/zfs/arcstats"
 #endif
 
 #ifndef PROCTTYDRIVERSFILE
@@ -927,30 +934,30 @@ static inline void LinuxProcessList_scanMemoryInfo(ProcessList* this) {
    char buffer[128];
    while (fgets(buffer, 128, file)) {
 
-      #define tryRead(label, variable) (String_startsWith(buffer, label) && sscanf(buffer + strlen(label), " %32llu kB", variable))
+      #define tryRead(label, variable) do { if (String_startsWith(buffer, label) && sscanf(buffer + strlen(label), " %32llu kB", variable)) { break; } } while(0)
       switch (buffer[0]) {
       case 'M':
-         if (tryRead("MemTotal:", &this->totalMem)) {}
-         else if (tryRead("MemFree:", &this->freeMem)) {}
-         else if (tryRead("MemShared:", &this->sharedMem)) {}
+         tryRead("MemTotal:", &this->totalMem);
+         tryRead("MemFree:", &this->freeMem);
+         tryRead("MemShared:", &this->sharedMem);
          break;
       case 'B':
-         if (tryRead("Buffers:", &this->buffersMem)) {}
+         tryRead("Buffers:", &this->buffersMem);
          break;
       case 'C':
-         if (tryRead("Cached:", &this->cachedMem)) {}
+         tryRead("Cached:", &this->cachedMem);
          break;
       case 'S':
          switch (buffer[1]) {
          case 'w':
-            if (tryRead("SwapTotal:", &this->totalSwap)) {}
-            else if (tryRead("SwapFree:", &swapFree)) {}
+            tryRead("SwapTotal:", &this->totalSwap);
+            tryRead("SwapFree:", &swapFree);
             break;
          case 'h':
-            if (tryRead("Shmem:", &shmem)) {}
+            tryRead("Shmem:", &shmem);
             break;
          case 'R':
-            if (tryRead("SReclaimable:", &sreclaimable)) {}
+            tryRead("SReclaimable:", &sreclaimable);
             break;
          }
          break;
@@ -962,6 +969,58 @@ static inline void LinuxProcessList_scanMemoryInfo(ProcessList* this) {
    this->cachedMem = this->cachedMem + sreclaimable - shmem;
    this->usedSwap = this->totalSwap - swapFree;
    fclose(file);
+}
+
+static inline void LinuxProcessList_scanZfsArcstats(LinuxProcessList* lpl) {
+   unsigned long long int dbufSize;
+   unsigned long long int dnodeSize;
+   unsigned long long int bonusSize;
+
+   FILE* file = fopen(PROCARCSTATSFILE, "r");
+   if (file == NULL) {
+      lpl->zfs.enabled = 0;
+      return;
+   }
+   char buffer[128];
+   while (fgets(buffer, 128, file)) {
+      #define tryRead(label, variable) do { if (String_startsWith(buffer, label) && sscanf(buffer + strlen(label), " %*2u %32llu", variable)) { break; } } while(0)
+      switch (buffer[0]) {
+      case 'c':
+         tryRead("c_max", &lpl->zfs.max);
+         break;
+      case 's':
+         tryRead("size", &lpl->zfs.size);
+         break;
+      case 'h':
+         tryRead("hdr_size", &lpl->zfs.header);
+         break;
+      case 'd':
+         tryRead("dbuf_size", &dbufSize);
+         tryRead("dnode_size", &dnodeSize);
+         break;
+      case 'b':
+         tryRead("bonus_size", &bonusSize);
+         break;
+      case 'a':
+         tryRead("anon_size", &lpl->zfs.anon);
+         break;
+      case 'm':
+         tryRead("mfu_size", &lpl->zfs.MFU);
+         tryRead("mru_size", &lpl->zfs.MRU);
+         break;
+      }
+      #undef tryRead
+   }
+   fclose(file);
+
+   lpl->zfs.enabled = (lpl->zfs.size > 0 ? 1 : 0);
+   lpl->zfs.size    /= 1024;
+   lpl->zfs.max    /= 1024;
+   lpl->zfs.MFU    /= 1024;
+   lpl->zfs.MRU    /= 1024;
+   lpl->zfs.anon   /= 1024;
+   lpl->zfs.header /= 1024;
+   lpl->zfs.other   = (dbufSize + dnodeSize + bonusSize) / 1024;
 }
 
 static inline double LinuxProcessList_scanCPUTime(LinuxProcessList* this) {
@@ -1038,6 +1097,7 @@ void ProcessList_goThroughEntries(ProcessList* super) {
    LinuxProcessList* this = (LinuxProcessList*) super;
 
    LinuxProcessList_scanMemoryInfo(super);
+   LinuxProcessList_scanZfsArcstats(this);
    double period = LinuxProcessList_scanCPUTime(this);
 
    struct timeval tv;
