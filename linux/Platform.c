@@ -22,6 +22,7 @@ in the source distribution for its full text.
 #include "ClockMeter.h"
 #include "HostnameMeter.h"
 #include "zfs/ZfsArcMeter.h"
+#include "zfs/ZfsCompressedArcMeter.h"
 #include "LinuxProcess.h"
 
 #include <math.h>
@@ -128,6 +129,7 @@ MeterClass* Platform_meterTypes[] = {
    &RightCPUs2Meter_class,
    &BlankMeter_class,
    &ZfsArcMeter_class,
+   &ZfsCompressedArcMeter_class,
    NULL
 };
 
@@ -218,20 +220,14 @@ void Platform_setSwapValues(Meter* this) {
 void Platform_setZfsArcValues(Meter* this) {
    LinuxProcessList* lpl = (LinuxProcessList*) this->pl;
 
-   this->total = lpl->zfs.max;
-   this->values[0] = lpl->zfs.MFU;
-   this->values[1] = lpl->zfs.MRU;
-   this->values[2] = lpl->zfs.anon;
-   this->values[3] = lpl->zfs.header;
-   this->values[4] = lpl->zfs.other;
-
-   // "Hide" the last value so it can
-   // only be accessed by index and is not
-   // displayed by the Bar or Graph style
-   Meter_setItems(this, 5);
-   this->values[5] = lpl->zfs.size;
+   ZfsArcMeter_readStats(this, &(lpl->zfs));
 }
 
+void Platform_setZfsCompressedArcValues(Meter* this) {
+   LinuxProcessList* lpl = (LinuxProcessList*) this->pl;
+
+   ZfsCompressedArcMeter_readStats(this, &(lpl->zfs));
+}
 char* Platform_getProcessEnv(pid_t pid) {
    char procname[32+1];
    xSnprintf(procname, 32, "/proc/%d/environ", pid);

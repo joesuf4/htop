@@ -133,6 +133,8 @@ typedef enum ColorElements_ {
    COLOR_ZFS_ANON,
    COLOR_ZFS_HEADER,
    COLOR_ZFS_OTHER,
+   COLOR_ZFS_COMPRESSED,
+   COLOR_ZFS_RATIO,
    LAST_COLORELEMENT
 } ColorElements;
 
@@ -242,6 +244,8 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [COLOR_ZFS_ANON] = ColorPair(Magenta,Black),
       [COLOR_ZFS_HEADER] = ColorPair(Cyan,Black),
       [COLOR_ZFS_OTHER] = ColorPair(Magenta,Black),
+      [COLOR_ZFS_COMPRESSED] = ColorPair(Blue,Black),
+      [COLOR_ZFS_RATIO] = ColorPair(Magenta,Black),
    },
    [COLORSCHEME_MONOCHROME] = {
       [COLOR_RESET_COLOR] = A_NORMAL,
@@ -306,6 +310,8 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [COLOR_ZFS_ANON] = A_DIM,
       [COLOR_ZFS_HEADER] = A_BOLD,
       [COLOR_ZFS_OTHER] = A_DIM,
+      [COLOR_ZFS_COMPRESSED] = A_BOLD,
+      [COLOR_ZFS_RATIO] = A_BOLD,
    },
    [COLORSCHEME_BLACKONWHITE] = {
       [COLOR_RESET_COLOR] = ColorPair(Black,White),
@@ -370,6 +376,8 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [COLOR_ZFS_ANON] = ColorPair(Magenta,White),
       [COLOR_ZFS_HEADER] = ColorPair(Yellow,White),
       [COLOR_ZFS_OTHER] = ColorPair(Magenta,White),
+      [COLOR_ZFS_COMPRESSED] = ColorPair(Cyan,White),
+      [COLOR_ZFS_RATIO] = ColorPair(Magenta,White),
    },
    [COLORSCHEME_LIGHTTERMINAL] = {
       [COLOR_RESET_COLOR] = ColorPair(Black,Black),
@@ -434,6 +442,8 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [COLOR_ZFS_ANON] = A_BOLD | ColorPair(Magenta,Black),
       [COLOR_ZFS_HEADER] = ColorPair(Black,Black),
       [COLOR_ZFS_OTHER] = A_BOLD | ColorPair(Magenta,Black),
+      [COLOR_ZFS_COMPRESSED] = ColorPair(Cyan,Black),
+      [COLOR_ZFS_RATIO] = A_BOLD | ColorPair(Magenta,Black),
    },
    [COLORSCHEME_MIDNIGHT] = {
       [COLOR_RESET_COLOR] = ColorPair(White,Blue),
@@ -498,6 +508,8 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [COLOR_ZFS_ANON] = A_BOLD | ColorPair(Magenta,Blue),
       [COLOR_ZFS_HEADER] = A_BOLD | ColorPair(Yellow,Blue),
       [COLOR_ZFS_OTHER] = A_BOLD | ColorPair(Magenta,Blue),
+      [COLOR_ZFS_COMPRESSED] = A_BOLD | ColorPair(White,Blue),
+      [COLOR_ZFS_RATIO] = A_BOLD | ColorPair(Magenta,Blue),
    },
    [COLORSCHEME_BLACKNIGHT] = {
       [COLOR_RESET_COLOR] = ColorPair(Cyan,Black),
@@ -562,6 +574,8 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [COLOR_ZFS_ANON] = ColorPair(Magenta,Black),
       [COLOR_ZFS_HEADER] = ColorPair(Yellow,Black),
       [COLOR_ZFS_OTHER] = ColorPair(Magenta,Black),
+      [COLOR_ZFS_COMPRESSED] = ColorPair(Blue,Black),
+      [COLOR_ZFS_RATIO] = ColorPair(Magenta,Black),
    },
    [COLORSCHEME_BROKENGRAY] = { 0 } // dynamically generated.
 };

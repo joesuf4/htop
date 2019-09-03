@@ -16,6 +16,7 @@ in the source distribution for its full text.
 #include "HostnameMeter.h"
 #include "UptimeMeter.h"
 #include "zfs/ZfsArcMeter.h"
+#include "zfs/ZfsCompressedArcMeter.h"
 #include "DarwinProcessList.h"
 
 #include <stdlib.h>
@@ -119,6 +120,7 @@ MeterClass* Platform_meterTypes[] = {
    &LeftCPUs2Meter_class,
    &RightCPUs2Meter_class,
    &ZfsArcMeter_class,
+   &ZfsCompressedArcMeter_class,
    &BlankMeter_class,
    NULL
 };
@@ -246,18 +248,13 @@ void Platform_setSwapValues(Meter* mtr) {
 void Platform_setZfsArcValues(Meter* this) {
    DarwinProcessList* dpl = (DarwinProcessList*) this->pl;
 
-   this->total = dpl->zfs.max;
-   this->values[0] = dpl->zfs.MFU;
-   this->values[1] = dpl->zfs.MRU;
-   this->values[2] = dpl->zfs.anon;
-   this->values[3] = dpl->zfs.header;
-   this->values[4] = dpl->zfs.other;
+   ZfsArcMeter_readStats(this, &(dpl->zfs));
+}
 
-   // "Hide" the last value so it can
-   // only be accessed by index and is not
-   // displayed by the Bar or Graph style
-   Meter_setItems(this, 5);
-   this->values[5] = dpl->zfs.size;
+void Platform_setZfsCompressedArcValues(Meter* this) {
+   DarwinProcessList* dpl = (DarwinProcessList*) this->pl;
+
+   ZfsCompressedArcMeter_readStats(this, &(dpl->zfs));
 }
 
 char* Platform_getProcessEnv(pid_t pid) {
