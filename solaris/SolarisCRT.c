@@ -10,6 +10,7 @@ in the source distribution for its full text.
 #include "CRT.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
@@ -41,7 +42,7 @@ void CRT_handleSIGSEGV(int sgn) {
 #endif
       abort();
    } else {
-      protected_str_target[0] = NULL;
+      protected_str_target = strdup("");
       protected_str_tlen = 0;
    }
 }

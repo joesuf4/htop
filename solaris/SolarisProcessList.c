@@ -493,10 +493,10 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       sproc->zoneid         = _psinfo->pr_zoneid;
       sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc);
       protected_str_read    = 1;
-      protected_str_target  = proc->comm;
       protected_str_tlen    = strnlen(_psinfo->pr_fname,PRFNSZ); 
-      proc->comm            = xStrdup(_psinfo->pr_fname);
+      protected_str_target  = xStrdup(_psinfo->pr_fname);
       protected_str_read    = 0;
+      proc->comm            = protected_str_target;
       proc->commLen         = protected_str_tlen;
       sproc->dmodel         = _psinfo->pr_dmodel;
    }
