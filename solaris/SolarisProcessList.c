@@ -106,7 +106,7 @@ char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc) {
      zname = xStrdup("unknown   ");
   } else {
      kstat_t* ks = kstat_lookup( kd, "zones", sproc->zoneid, NULL );
-     if (!ks->ks_name) {
+     if (!ks) {
         zname = xStrdup(ks->ks_name);
      } else {
         zname = xStrdup("unknown   ");
