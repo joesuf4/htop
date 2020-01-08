@@ -21,6 +21,7 @@ in the source distribution for its full text.
 // catch SIGSEGV in that specific case and work around it.
 extern bool   protected_str_read;
 extern char*  protected_str_target;
+extern char*  protected_str_empty;
 extern size_t protected_str_tlen;
 
 void CRT_handleSIGSEGV(int sgn);

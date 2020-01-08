@@ -10,7 +10,6 @@ in the source distribution for its full text.
 #include "CRT.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
@@ -23,6 +22,7 @@ in the source distribution for its full text.
 // catch SIGSEGV in that specific case and work around it.
 extern bool   protected_str_read;
 extern char*  protected_str_target;
+extern char*  protected_str_empty;
 extern size_t protected_str_tlen;
 
 void CRT_handleSIGSEGV(int sgn) {
@@ -42,7 +42,7 @@ void CRT_handleSIGSEGV(int sgn) {
 #endif
       abort();
    } else {
-      protected_str_target = strdup("");
+      protected_str_target = protected_str_empty;
       protected_str_tlen = 0;
    }
 }
