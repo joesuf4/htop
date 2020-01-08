@@ -100,14 +100,18 @@ static uint_t get_bitness(const char *isa) {
 
 char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc) {
   char* zname ;
+  kstat_t* ks = NULL;
   if ( sproc->zoneid == 0 ) {
      zname = xStrdup("global    ");
   } else if ( kd == NULL ) {
      zname = xStrdup("unknown   ");
   } else {
-     kstat_t* ks = kstat_lookup( kd, "zones", sproc->zoneid, NULL );
-     if (!ks) {
-        zname = xStrdup(ks->ks_name);
+     ks = kstat_lookup( kd, "zones", sproc->zoneid, NULL );
+     if (ks != NULL) {
+        protected_str_read   = 1;
+        protected_str_target = xStrdup(ks->ks_name);
+        protected_str_read   = 0;
+        zname = protected_str_target;
      } else {
         zname = xStrdup("unknown   ");
      }
