@@ -13,6 +13,16 @@ in the source distribution for its full text.
 #ifdef HAVE_EXECINFO_H
 #endif
 
+// Solaris and illumos can pass a psinfo struct to the target of proc_walk
+// and yet the process has Gone Away(TM) before the psinfo_t info can be read.
+// This is only a serious problem for pointers in the psinfo_t struct, where attempting
+// to read them causes a SIGSEGV.  This would be fixed by grabbing a handle, but we have
+// to be superuser or process owner for that.  So, we'll implement a dirty hack here to
+// catch SIGSEGV in that specific case and work around it.
+extern bool   protected_str_read;
+extern char*  protected_str_target;
+extern size_t protected_str_tlen;
+
 void CRT_handleSIGSEGV(int sgn);
 
 #endif

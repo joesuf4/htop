@@ -54,6 +54,10 @@ typedef struct SolarisProcessList_ {
 } SolarisProcessList;
 
 
+extern bool   protected_str_read  ;
+extern char*  protected_str_target;
+extern size_t protected_str_tlen  ;
+
 // Used in case htop is 32-bit but we're on a 64-bit kernel
 // in which case it is needed to correctly cast zone memory
 // usage info

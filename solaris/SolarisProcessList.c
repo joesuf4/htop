@@ -71,6 +71,10 @@ typedef struct SolarisProcessList_ {
 
 }*/
 
+bool   protected_str_read   = 0;
+char*  protected_str_target = NULL;
+size_t protected_str_tlen   = 0;
+
 // Used in case htop is 32-bit but we're on a 64-bit kernel
 // in which case it is needed to correctly cast zone memory
 // usage info
@@ -94,14 +98,18 @@ static uint_t get_bitness(const char *isa) {
 }
 
 char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc) {
-  char* zname;
+  char* zname ;
   if ( sproc->zoneid == 0 ) {
      zname = xStrdup("global    ");
   } else if ( kd == NULL ) {
      zname = xStrdup("unknown   ");
   } else {
      kstat_t* ks = kstat_lookup( kd, "zones", sproc->zoneid, NULL );
-     zname = xStrdup(ks->ks_name);
+     if (!ks->ks_name) {
+        zname = xStrdup(ks->ks_name);
+     } else {
+        zname = xStrdup("unknown   ");
+     }
   }
   return zname;
 }
@@ -483,9 +491,13 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       sproc->realpid        = _psinfo->pr_pid;
       sproc->lwpid          = lwpid_real;
       sproc->zoneid         = _psinfo->pr_zoneid;
-      sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc); 
+      sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc);
+      protected_str_read    = 1;
+      protected_str_target  = proc->comm;
+      protected_str_tlen    = strnlen(_psinfo->pr_fname,PRFNSZ); 
       proc->comm            = xStrdup(_psinfo->pr_fname);
-      proc->commLen         = strnlen(_psinfo->pr_fname,PRFNSZ);
+      protected_str_read    = 0;
+      proc->commLen         = protected_str_tlen;
       sproc->dmodel         = _psinfo->pr_dmodel;
    }
 
