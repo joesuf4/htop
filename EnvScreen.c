@@ -6,6 +6,7 @@
 #include "ListItem.h"
 #include "Platform.h"
 #include "StringUtils.h"
+#include "solaris/SolarisProcess.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -39,17 +40,18 @@ void EnvScreen_delete(Object* this) {
 }
 
 void EnvScreen_draw(InfoScreen* this) {
-   InfoScreen_drawTitled(this, "Environment of process %d - %s", this->process->pid, this->process->comm);
+  SolarisProcess *sp = (SolarisProcess *)this->process;
+   InfoScreen_drawTitled(this, "Environment of process %d - %s", sp->realpid, this->process->comm);
 }
 
 void EnvScreen_scan(InfoScreen* this) {
    Panel* panel = this->display;
    int idx = MAX(Panel_getSelectedIndex(panel), 0);
-
+   SolarisProcess *sp = (SolarisProcess *)this->process;
    Panel_prune(panel);
 
    CRT_dropPrivileges();
-   char* env = Platform_getProcessEnv(this->process->pid);
+   char* env = Platform_getProcessEnv(sp->realpid);
    CRT_restorePrivileges();
    if (env) {
       for (char *p = env; *p; p = strrchr(p, 0)+1)

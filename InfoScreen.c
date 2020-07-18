@@ -78,11 +78,11 @@ InfoScreen* InfoScreen_done(InfoScreen* this) {
 void InfoScreen_drawTitled(InfoScreen* this, char* fmt, ...) {
    va_list ap;
    va_start(ap, fmt);
-   attrset(CRT_colors[METER_TEXT]);
+   attrset(CRT_colors[COLOR_METER_TEXT]);
    mvhline(0, 0, ' ', COLS);
    wmove(stdscr, 0, 0);
    vw_printw(stdscr, fmt, ap);
-   attrset(CRT_colors[DEFAULT_COLOR]);
+   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
    this->display->needsRedraw = true;
    Panel_draw(this->display, true);
    IncSet_drawBar(this->inc);
@@ -120,13 +120,13 @@ void InfoScreen_run(InfoScreen* this) {
       }
       set_escdelay(25);
       int ch = getch();
-      
-      if (ch == ERR) {
+
+      //      if (ch == ERR) {
          if (As_InfoScreen(this)->onErr) {
             InfoScreen_onErr(this);
-            continue;
+            //            continue;
          }
-      }
+         //      }
 
       if (ch == KEY_MOUSE) {
          MEVENT mevent;
@@ -143,7 +143,7 @@ void InfoScreen_run(InfoScreen* this) {
          IncSet_handleKey(this->inc, ch, panel, IncSet_getListItemValue, this->lines);
          continue;
       }
-      
+
       switch(ch) {
       case ERR:
          continue;

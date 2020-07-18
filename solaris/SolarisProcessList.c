@@ -1,7 +1,7 @@
 /*
 htop - SolarisProcessList.c
 (C) 2014 Hisham H. Muhammad
-(C) 2017,2018 Guy M. Broome
+(C) 2017-2019 Guy M. Broome
 Released under the GNU GPL, see the COPYING file
 in the source distribution for its full text.
 */
@@ -22,10 +22,14 @@ in the source distribution for its full text.
 #include <pwd.h>
 #include <math.h>
 #include <time.h>
+#include <sys/vm_usage.h>
+#include <sys/systeminfo.h>
 
 #define MAXCMDLINE 255
 
 /*{
+
+#include "zfs/ZfsArcStats.h"
 
 #include <kstat.h>
 #include <sys/param.h>
@@ -55,19 +59,62 @@ typedef struct SolarisProcessList_ {
    ProcessList super;
    kstat_ctl_t* kd;
    CPUData* cpus;
+   zoneid_t this_zone;
+   size_t zmaxmem;
+   size_t sysusedmem;
+   char* karch;
+   uint_t kbitness;
+   char* earch;
+   uint_t ebitness;
+   ZfsArcStats zfs;
 } SolarisProcessList;
 
 }*/
 
+bool   protected_str_read    = 0;
+char*  protected_str_target  = NULL;
+size_t protected_str_tlen    = 0;
+char   protected_str_empty[] = "";
+
+// Used in case htop is 32-bit but we're on a 64-bit kernel
+// in which case it is needed to correctly cast zone memory
+// usage info
+typedef struct htop_vmusage64 {
+	id_t vmu_zoneid;
+	uint_t vmu_type;
+	id_t vmu_id;
+	int alignment_padding;
+	uint64_t vmu_rss_all;
+	uint64_t vmu_rss_private;
+	uint64_t vmu_rss_shared;
+	uint64_t vmu_swap_all;
+	uint64_t vmu_swap_private;
+	uint64_t vmu_swap_shared;
+} htop_vmusage64_t;
+
+static uint_t get_bitness(const char *isa) {
+   if (strcmp(isa, "sparc") == 0 || strcmp(isa, "i386") == 0) return (32);
+   if (strcmp(isa, "sparcv9") == 0 || strcmp(isa, "amd64") == 0) return (64);
+   return (0);
+}
+
 char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc) {
-  char* zname;
+  char* zname ;
+  kstat_t* ks = NULL;
   if ( sproc->zoneid == 0 ) {
      zname = xStrdup("global    ");
   } else if ( kd == NULL ) {
      zname = xStrdup("unknown   ");
   } else {
-     kstat_t* ks = kstat_lookup( kd, "zones", sproc->zoneid, NULL );
-     zname = xStrdup(ks->ks_name);
+     ks = kstat_lookup( kd, "zones", sproc->zoneid, NULL );
+     if (ks != NULL) {
+        protected_str_read   = 1;
+        protected_str_target = xStrdup(ks->ks_name);
+        protected_str_read   = 0;
+        zname = protected_str_target;
+     } else {
+        zname = xStrdup("unknown   ");
+     }
   }
   return zname;
 }
@@ -88,6 +135,34 @@ ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidWhiteList, ui
    // ...as is failing to access sysconf data
    if ( (pl->cpuCount = sysconf(_SC_NPROCESSORS_ONLN)) <= 0 ) {
       fprintf(stderr, "\nThe sysconf() system call does not seem to be working.\n");
+      abort();
+   }
+
+   // Get the zone of the running htop process.
+   spl->this_zone = getzoneid();
+
+   spl->karch = (char *)calloc(8,sizeof(char));
+   spl->earch = (char *)calloc(8,sizeof(char));
+
+   // Various info on the architecture of the kernel and the current binary
+   // which is needed to correctly get zone memory usage and limit info
+   if (sysinfo(SI_ARCHITECTURE_K,spl->karch,8) == -1) {
+      fprintf(stderr, "\nUnable to determine kernel architecture.\n");
+      abort();
+   }
+
+   if ((spl->kbitness = get_bitness(spl->karch)) == 0) {
+      fprintf(stderr, "\nUnable to determine kernel bitness.\n");
+      abort();
+   }
+
+   if (sysinfo(SI_ARCHITECTURE_NATIVE,spl->earch,8) == -1) {
+      fprintf(stderr, "\nUnable to determine architecture of this program.\n");
+      abort();
+   }
+
+   if ((spl->ebitness = get_bitness(spl->earch)) == 0) {
+      fprintf(stderr, "\nUnable to determine bitness of this program.\n");
       abort();
    }
 
@@ -136,8 +211,8 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
          }
       }
 
-      if !( (idletime != NULL) && (intrtime != NULL)
-           && (krnltime != NULL) && (usertime != NULL) ) {
+      if (!((idletime != NULL) && (intrtime != NULL)
+           && (krnltime != NULL) && (usertime != NULL))) {
          fprintf(stderr,"\nCalls to kstat do not appear to be working.\n");
          abort();
       }
@@ -167,7 +242,7 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
          idlebuf               += cpuData->idlePercent;
       }
    }
-   
+
    if (cpus > 1) {
       CPUData* cpuData          = &(spl->cpus[0]);
       cpuData->userPercent      = userbuf / cpus;
@@ -184,37 +259,80 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
    kstat_t             *meminfo = NULL;
    int                 ksrphyserr = -1;
    kstat_named_t       *totalmem_pgs = NULL;
-   kstat_named_t       *lockedmem_pgs = NULL;
-   kstat_named_t       *pages = NULL;
+   kstat_named_t       *freemem_pgs = NULL;
    struct swaptable    *sl = NULL;
    struct swapent      *swapdev = NULL;
    uint64_t            totalswap = 0;
    uint64_t            totalfree = 0;
+   uint64_t            zramcap = 0;
    int                 nswap = 0;
-   char                *spath = NULL; 
+   char                *spath = NULL;
    char                *spathbase = NULL;
+   htop_vmusage64_t    *vmu_vals64 = NULL;
+   vmusage_t           *vmu_vals = NULL;
+   size_t              nvmu_vals = 1;
+   size_t              real_sys_used = 0;
+   int                 ret;
 
    // Part 1 - physical memory
+   // This is done very differently for global vs. non-global zones, because
+   // the method needed for non-global, while capable of reporting system-wide
+   // usage, also provides much more limited detail.
+
    if ( (meminfo = kstat_lookup(spl->kd,"unix",0,"system_pages")) != NULL) {
       if ( (ksrphyserr = kstat_read(spl->kd,meminfo,NULL)) != -1) {
          totalmem_pgs   = kstat_data_lookup( meminfo, "physmem" );
-         lockedmem_pgs  = kstat_data_lookup( meminfo, "pageslocked" );
-         pages          = kstat_data_lookup( meminfo, "pagestotal" );
+         freemem_pgs    = kstat_data_lookup( meminfo, "pagesfree" );
 
-         pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
-         pl->usedMem    = lockedmem_pgs->value.ui64 * PAGE_SIZE_KB;
-         // Not sure how to implement this on Solaris - suggestions welcome!
-         pl->cachedMem  = 0;     
-         // Not really "buffers" but the best Solaris analogue that I can find to
-         // "memory in use but not by programs or the kernel itself"
-         pl->buffersMem = (totalmem_pgs->value.ui64 - pages->value.ui64) * PAGE_SIZE_KB;
-       }
+         if (spl->this_zone == 0) {
+            // htop is running in the global zone, so get system-wide memory stats
+            pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+            pl->usedMem    = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
+            // Not sure how to implement these on Solaris - suggestions welcome!
+            spl->zmaxmem = 0;
+            spl->sysusedmem  = 0;
+         } else {
+            // htop is running in a non-global zone, so only report mem stats for this zone
+            pl->totalMem    = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+            spl->zmaxmem    = 0;
+            real_sys_used   = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
+            vmu_vals        = (vmusage_t *)calloc(1,sizeof(vmusage_t));
+            vmu_vals64      = (htop_vmusage64_t *)calloc(1,sizeof(htop_vmusage64_t));
+
+            if ( spl->kbitness == spl->ebitness ) {
+               // htop is kernel-native bitness, 32 or 64
+               getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals);
+               pl->usedMem  = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+            } else if ( spl->kbitness == 64 ) {
+               // htop is not kernel native bitness, e.g. 32-bit htop with a 64-bit kernel
+              getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals);
+               pl->usedMem  = vmu_vals64[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+            } else {
+               // Huh?  64-bit app on a 32-bit kernel?  Nope.  Maybe it's 2030 and 128-bit architectures
+               // are now a thing?
+               pl->usedMem  = 0;
+            }
+
+            ret = zone_getattr(spl->this_zone,ZONE_ATTR_PHYS_MCAP,&zramcap,sizeof(zramcap));
+            if ( ret < 0 ) zramcap = 0;
+
+            spl->zmaxmem = zramcap / 1024;
+            if ( real_sys_used > spl->zmaxmem ) {
+               spl->sysusedmem = real_sys_used - spl->zmaxmem;
+            } else {
+               spl->sysusedmem = 0;
+            }
+
+            free(vmu_vals);
+            free(vmu_vals64);
+         }
+      }
    }
-   
+
    // Part 2 - swap
    if ( (nswap = swapctl(SC_GETNSWP, NULL)) > 0) {
       if ( (sl = xMalloc((nswap * sizeof(swapent_t)) + sizeof(int))) != NULL) {
-         if ( (spathbase = xMalloc( nswap * MAXPATHLEN )) != NULL) { 
+         if ( (spathbase = xMalloc( nswap * MAXPATHLEN )) != NULL) {
             spath = spathbase;
             swapdev = sl->swt_ent;
             for (int i = 0; i < nswap; i++, swapdev++) {
@@ -225,7 +343,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
          sl->swt_n = nswap;
       }
    }
-   if ( (nswap = swapctl(SC_LIST, sl)) > 0) { 
+   if ( (nswap = swapctl(SC_LIST, sl)) > 0) {
       swapdev = sl->swt_ent;
       for (int i = 0; i < nswap; i++, swapdev++) {
          totalswap += swapdev->ste_pages;
@@ -235,12 +353,49 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
    free(spathbase);
    free(sl);
    pl->totalSwap = totalswap * PAGE_SIZE_KB;
-   pl->usedSwap  = pl->totalSwap - (totalfree * PAGE_SIZE_KB); 
+   pl->usedSwap  = pl->totalSwap - (totalfree * PAGE_SIZE_KB);
+}
+
+static inline void SolarisProcessList_scanZfsArcstats(ProcessList* pl) {
+   SolarisProcessList* spl = (SolarisProcessList*) pl;
+   kstat_t             *arcstats = NULL;
+   int                 ksrphyserr = -1;
+   kstat_named_t       *cur_kstat = NULL;
+
+   if (spl->kd != NULL)  { arcstats   = kstat_lookup(spl->kd,"zfs",0,"arcstats"); }
+   if (arcstats != NULL) { ksrphyserr = kstat_read(spl->kd,arcstats,NULL); }
+   if (ksrphyserr != -1) {
+      cur_kstat = kstat_data_lookup( arcstats, "size" );
+      spl->zfs.size = cur_kstat->value.ui64 / 1024;
+      spl->zfs.enabled = spl->zfs.size > 0 ? 1 : 0;
+
+#define LOOKUP_AND_SET(field, attr) do {                            \
+    if ((cur_kstat = kstat_data_lookup( arcstats, #field)) != NULL) \
+      spl->zfs.attr = cur_kstat->value.ui64 / 1024;                 \
+   } while (0)
+      LOOKUP_AND_SET(c_max, max);
+      LOOKUP_AND_SET(mfu_size, MFU);
+      LOOKUP_AND_SET(mru_size, MRU);
+      LOOKUP_AND_SET(anon_size, anon);
+      LOOKUP_AND_SET(hdr_size, header);
+      LOOKUP_AND_SET(other_size, other);
+
+      if ((cur_kstat = kstat_data_lookup( arcstats, "compressed_size" )) != NULL) {
+         spl->zfs.compressed = cur_kstat->value.ui64 / 1024;
+         spl->zfs.isCompressed = 1;
+         cur_kstat = kstat_data_lookup( arcstats, "uncompressed_size" );
+         spl->zfs.uncompressed = cur_kstat->value.ui64 / 1024;
+      } else {
+         spl->zfs.isCompressed = 0;
+      }
+   }
 }
 
 void ProcessList_delete(ProcessList* pl) {
    SolarisProcessList* spl = (SolarisProcessList*) pl;
    ProcessList_done(pl);
+   free(spl->earch);
+   free(spl->karch);
    free(spl->cpus);
    kstat_close(spl->kd);
    free(spl);
@@ -250,33 +405,55 @@ void ProcessList_delete(ProcessList* pl) {
  *       and MUST conform to the appropriate definition in order
  *       to work.  See libproc(3LIB) on a Solaris or Illumos
  *       system for more info.
- */ 
+ */
 
 int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *listptr) {
+   ProcessList *pl = (ProcessList*) listptr;
+   SolarisProcessList *spl = (SolarisProcessList*) listptr;
    struct timeval tv;
    struct tm date;
    bool preExisting;
    pid_t getpid;
+   int perr = -1;
+   int psferr = -1;
 
-   // Setup process list
-   ProcessList *pl = (ProcessList*) listptr;
-   SolarisProcessList *spl = (SolarisProcessList*) listptr;
-
+   // Setup for using pseudo-PIDs in the htop process table while
+   // displaying the real PIDs in user output, since LWPs don't have
+   // unique PIDs on Solaris or illumos
+   // NOTE: LWPIDs greater than 1023 on a given process will not be
+   //   listed by htop, due to size limits of the pid_t field.  I
+   //   don't currently see any way around this.  Suggestions welcome.
    id_t lwpid_real = _lwpsinfo->pr_lwpid;
    if (lwpid_real > 1023) return 0;
    pid_t lwpid   = (_psinfo->pr_pid * 1024) + lwpid_real;
    bool onMasterLWP = (_lwpsinfo->pr_lwpid == _psinfo->pr_lwp.pr_lwpid);
    if (onMasterLWP) {
+      // Left-shifting the top level PID, while subordinate
+      // LWPs have that base plus the LWPID as their "htop PID."
+      // This gives us unique PIDs per-LWP for the htop PID table
+      // _with correct sorting_ at the cost of the 1023 LWP limit.
       getpid = _psinfo->pr_pid * 1024;
    } else {
       getpid = lwpid;
-   } 
+   }
+
+   // Can't do this until we have done the pseudo-PID setup above
    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
    SolarisProcess *sproc     = (SolarisProcess*) proc;
 
+   // Grab a read-only process handle.  Only used for getting
+   // process security flags at the moment, and that only works
+   // on illumos.
+#ifdef PRSECFLAGS_VERSION_1
+   struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
+   prsecflags_t *psf         = NULL;
+   if (!perr) {
+      psferr = Psecflags(ph,&psf);
+   }
+#endif
    gettimeofday(&tv, NULL);
 
-   // Common code pass 1
+   // For new and existing entries in the htop proc table for all LWPs
    proc->show               = false;
    sproc->taskid            = _psinfo->pr_taskid;
    sproc->projid            = _psinfo->pr_projid;
@@ -293,30 +470,44 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
    proc->st_uid             = _psinfo->pr_euid;
    proc->pgrp               = _psinfo->pr_pgid;
    proc->nlwp               = _psinfo->pr_nlwp;
-   proc->tty_nr             = _psinfo->pr_ttydev;
+   sproc->sol_tty_nr        = _psinfo->pr_ttydev;
    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
-
+   proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+#ifdef PRSECFLAGS_VERSION_1 // illumos only
+   if (!psferr) {
+      sproc->esecflags      = psf->pr_effective;
+      Psecflags_free(psf);
+   } else {
+      sproc->esecflags      = PROC_SEC_UNAVAIL;
+   }
+   if (!perr) Pfree(ph);
+#endif
+   // For new htop proc table entries only, for all LWPs
    if (!preExisting) {
       sproc->realpid        = _psinfo->pr_pid;
       sproc->lwpid          = lwpid_real;
       sproc->zoneid         = _psinfo->pr_zoneid;
-      sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc); 
-      proc->user            = UsersTable_getRef(pl->usersTable, proc->st_uid);
-      proc->comm            = xStrdup(_psinfo->pr_fname);
-      proc->commLen         = strnlen(_psinfo->pr_fname,PRFNSZ);
+      sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc);
+      protected_str_read    = 1;
+      protected_str_tlen    = strnlen(_psinfo->pr_fname,PRFNSZ);
+      protected_str_target  = xStrdup(_psinfo->pr_fname);
+      protected_str_read    = 0;
+      proc->comm            = protected_str_target;
+      proc->commLen         = protected_str_tlen;
+      sproc->dmodel         = _psinfo->pr_dmodel;
    }
 
-   // End common code pass 1
-
-   if (onMasterLWP) { // Are we on the representative LWP?
+   // For new and existing entries in the htop proc table, but only for rep. LWP
+   if (onMasterLWP) {
       proc->ppid            = (_psinfo->pr_ppid * 1024);
       proc->tgid            = (_psinfo->pr_ppid * 1024);
       sproc->realppid       = _psinfo->pr_ppid;
       // See note above (in common section) about this BINARY FRACTION
       proc->percent_cpu     = ((uint16_t)_psinfo->pr_pctcpu/(double)32768)*(double)100.0;
-      proc->time            = _psinfo->pr_time.tv_sec;
-      if(!preExisting) { // Tasks done only for NEW processes
+      proc->time            = (_psinfo->pr_time.tv_sec * 100) + (_psinfo->pr_time.tv_nsec / 10000000);
+      // For existing htop proc table entries, and only for rep. LWP
+      if(!preExisting) {
          sproc->is_lwp = false;
          proc->starttime_ctime = _psinfo->pr_start.tv_sec;
       }
@@ -336,11 +527,13 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
          }
       }
       proc->show = !(pl->settings->hideKernelThreads && sproc->kernel);
-   } else { // We are not in the master LWP, so jump to the LWP handling code
+   } else {
+   // For new and existing entries in the htop proc table, but only for non-rep. LWPs
       proc->percent_cpu        = ((uint16_t)_lwpsinfo->pr_pctcpu/(double)32768)*(double)100.0;
-      proc->time               = _lwpsinfo->pr_time.tv_sec;
-      if (!preExisting) { // Tasks done only for NEW LWPs
-         sproc->is_lwp         = true; 
+      proc->time               = (_lwpsinfo->pr_time.tv_sec * 100) + (_lwpsinfo->pr_time.tv_nsec / 10000000);
+      // For existing proc table entries, but only for non-rep. LWPs
+      if (!preExisting) {
+         sproc->is_lwp         = true;
          proc->basenameOffset  = -1;
          proc->ppid            = _psinfo->pr_pid * 1024;
          proc->tgid            = _psinfo->pr_pid * 1024;
@@ -351,10 +544,9 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       // Top-level process only gets this for the representative LWP
       if (sproc->kernel  && !pl->settings->hideKernelThreads)   proc->show = true;
       if (!sproc->kernel && !pl->settings->hideUserlandThreads) proc->show = true;
-   } // Top-level LWP or subordinate LWP
+   }
 
-   // Common code pass 2
-
+   // For new entries only, for all LWPs
    if (!preExisting) {
       if ((sproc->realppid <= 0) && !(sproc->realpid <= 1)) {
          sproc->kernel = true;
@@ -367,15 +559,13 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
    }
    proc->updated = true;
 
-   // End common code pass 2
-
    return 0;
 }
 
 void ProcessList_goThroughEntries(ProcessList* this) {
    SolarisProcessList_scanCPUTime(this);
    SolarisProcessList_scanMemoryInfo(this);
+   SolarisProcessList_scanZfsArcstats(this);
    this->kernelThreads = 1;
    proc_walk(&SolarisProcessList_walkproc, this, PR_WALK_LWP);
 }
-
