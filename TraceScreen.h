@@ -16,8 +16,6 @@ typedef struct TraceScreen_ {
    bool tracing;
    int fdpair[2];
    int child;
-   FILE* strace;
-   int fd_strace;
    bool contLine;
    bool follow;
 } TraceScreen;

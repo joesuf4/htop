@@ -242,7 +242,7 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
          idlebuf               += cpuData->idlePercent;
       }
    }
-   
+
    if (cpus > 1) {
       CPUData* cpuData          = &(spl->cpus[0]);
       cpuData->userPercent      = userbuf / cpus;
@@ -266,7 +266,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
    uint64_t            totalfree = 0;
    uint64_t            zramcap = 0;
    int                 nswap = 0;
-   char                *spath = NULL; 
+   char                *spath = NULL;
    char                *spathbase = NULL;
    htop_vmusage64_t    *vmu_vals64 = NULL;
    vmusage_t           *vmu_vals = NULL;
@@ -305,7 +305,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
                pl->usedMem  = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
             } else if ( spl->kbitness == 64 ) {
                // htop is not kernel native bitness, e.g. 32-bit htop with a 64-bit kernel
-               getvmusage(VMUSAGE_ZONE, 0, vmu_vals64, &nvmu_vals);
+              getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals);
                pl->usedMem  = vmu_vals64[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
             } else {
                // Huh?  64-bit app on a 32-bit kernel?  Nope.  Maybe it's 2030 and 128-bit architectures
@@ -332,7 +332,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
    // Part 2 - swap
    if ( (nswap = swapctl(SC_GETNSWP, NULL)) > 0) {
       if ( (sl = xMalloc((nswap * sizeof(swapent_t)) + sizeof(int))) != NULL) {
-         if ( (spathbase = xMalloc( nswap * MAXPATHLEN )) != NULL) { 
+         if ( (spathbase = xMalloc( nswap * MAXPATHLEN )) != NULL) {
             spath = spathbase;
             swapdev = sl->swt_ent;
             for (int i = 0; i < nswap; i++, swapdev++) {
@@ -343,7 +343,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
          sl->swt_n = nswap;
       }
    }
-   if ( (nswap = swapctl(SC_LIST, sl)) > 0) { 
+   if ( (nswap = swapctl(SC_LIST, sl)) > 0) {
       swapdev = sl->swt_ent;
       for (int i = 0; i < nswap; i++, swapdev++) {
          totalswap += swapdev->ste_pages;
@@ -353,7 +353,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
    free(spathbase);
    free(sl);
    pl->totalSwap = totalswap * PAGE_SIZE_KB;
-   pl->usedSwap  = pl->totalSwap - (totalfree * PAGE_SIZE_KB); 
+   pl->usedSwap  = pl->totalSwap - (totalfree * PAGE_SIZE_KB);
 }
 
 static inline void SolarisProcessList_scanZfsArcstats(ProcessList* pl) {
@@ -369,28 +369,20 @@ static inline void SolarisProcessList_scanZfsArcstats(ProcessList* pl) {
       spl->zfs.size = cur_kstat->value.ui64 / 1024;
       spl->zfs.enabled = spl->zfs.size > 0 ? 1 : 0;
 
-      cur_kstat = kstat_data_lookup( arcstats, "c_max" );
-      spl->zfs.max = cur_kstat->value.ui64 / 1024;
-
-      cur_kstat = kstat_data_lookup( arcstats, "mfu_size" );
-      spl->zfs.MFU = cur_kstat->value.ui64 / 1024;
-
-      cur_kstat = kstat_data_lookup( arcstats, "mru_size" );
-      spl->zfs.MRU = cur_kstat->value.ui64 / 1024;
-
-      cur_kstat = kstat_data_lookup( arcstats, "anon_size" );
-      spl->zfs.anon = cur_kstat->value.ui64 / 1024;
-
-      cur_kstat = kstat_data_lookup( arcstats, "hdr_size" );
-      spl->zfs.header = cur_kstat->value.ui64 / 1024;
-
-      cur_kstat = kstat_data_lookup( arcstats, "other_size" );
-      spl->zfs.other = cur_kstat->value.ui64 / 1024;
+#define LOOKUP_AND_SET(field, attr) do {                            \
+    if ((cur_kstat = kstat_data_lookup( arcstats, #field)) != NULL) \
+      spl->zfs.attr = cur_kstat->value.ui64 / 1024;                 \
+   } while (0)
+      LOOKUP_AND_SET(c_max, max);
+      LOOKUP_AND_SET(mfu_size, MFU);
+      LOOKUP_AND_SET(mru_size, MRU);
+      LOOKUP_AND_SET(anon_size, anon);
+      LOOKUP_AND_SET(hdr_size, header);
+      LOOKUP_AND_SET(other_size, other);
 
       if ((cur_kstat = kstat_data_lookup( arcstats, "compressed_size" )) != NULL) {
          spl->zfs.compressed = cur_kstat->value.ui64 / 1024;
          spl->zfs.isCompressed = 1;
-
          cur_kstat = kstat_data_lookup( arcstats, "uncompressed_size" );
          spl->zfs.uncompressed = cur_kstat->value.ui64 / 1024;
       } else {
@@ -413,7 +405,7 @@ void ProcessList_delete(ProcessList* pl) {
  *       and MUST conform to the appropriate definition in order
  *       to work.  See libproc(3LIB) on a Solaris or Illumos
  *       system for more info.
- */ 
+ */
 
 int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *listptr) {
    ProcessList *pl = (ProcessList*) listptr;
@@ -443,7 +435,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       getpid = _psinfo->pr_pid * 1024;
    } else {
       getpid = lwpid;
-   } 
+   }
 
    // Can't do this until we have done the pseudo-PID setup above
    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
@@ -498,7 +490,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       sproc->zoneid         = _psinfo->pr_zoneid;
       sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc);
       protected_str_read    = 1;
-      protected_str_tlen    = strnlen(_psinfo->pr_fname,PRFNSZ); 
+      protected_str_tlen    = strnlen(_psinfo->pr_fname,PRFNSZ);
       protected_str_target  = xStrdup(_psinfo->pr_fname);
       protected_str_read    = 0;
       proc->comm            = protected_str_target;
@@ -506,7 +498,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       sproc->dmodel         = _psinfo->pr_dmodel;
    }
 
-   // For new and existing entries in the htop proc table, but only for rep. LWP 
+   // For new and existing entries in the htop proc table, but only for rep. LWP
    if (onMasterLWP) {
       proc->ppid            = (_psinfo->pr_ppid * 1024);
       proc->tgid            = (_psinfo->pr_ppid * 1024);
@@ -541,7 +533,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
       proc->time               = (_lwpsinfo->pr_time.tv_sec * 100) + (_lwpsinfo->pr_time.tv_nsec / 10000000);
       // For existing proc table entries, but only for non-rep. LWPs
       if (!preExisting) {
-         sproc->is_lwp         = true; 
+         sproc->is_lwp         = true;
          proc->basenameOffset  = -1;
          proc->ppid            = _psinfo->pr_pid * 1024;
          proc->tgid            = _psinfo->pr_pid * 1024;
@@ -577,4 +569,3 @@ void ProcessList_goThroughEntries(ProcessList* this) {
    this->kernelThreads = 1;
    proc_walk(&SolarisProcessList_walkproc, this, PR_WALK_LWP);
 }
-

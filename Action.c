@@ -66,7 +66,7 @@ Object* Action_pickFromVector(State* st, Panel* list, int x) {
    Panel* panel = st->panel;
    Header* header = st->header;
    Settings* settings = st->settings;
-   
+
    int y = panel->y;
    ScreenManager* scr = ScreenManager_new(0, header->height, 0, -1, HORIZONTAL, header, settings, false);
    scr->allowFocusChange = false;
@@ -297,7 +297,7 @@ static Htop_Reaction actionSetAffinity(State* st) {
       return HTOP_OK;
 #if (HAVE_LIBHWLOC || HAVE_LINUX_AFFINITY)
    Panel* panel = st->panel;
-   
+
    Process* p = (Process*) Panel_getSelected(panel);
    if (!p) return HTOP_OK;
    Affinity* affinity = Affinity_get(p, st->pl);
@@ -435,8 +435,8 @@ static const struct { const char* key; const char* info; } helpRight[] = {
 #endif
    { .key = "      e: ", .info = "show process environment" },
    { .key = "      i: ", .info = "set IO priority" },
-   { .key = "      l: ", .info = "list open files with lsof" },
-   { .key = "      s: ", .info = "trace syscalls with strace" },
+   { .key = "      l: ", .info = "list open files with pfiles" },
+   { .key = "      s: ", .info = "trace syscalls with truss" },
    { .key = "         ", .info = "" },
    { .key = " F2 C S: ", .info = "setup" },
    { .key = "   F1 h: ", .info = "show this help screen" },
@@ -597,4 +597,3 @@ void Action_setBindings(Htop_Action* keys) {
    keys['c'] = actionTagAllChildren;
    keys['e'] = actionShowEnvScreen;
 }
-

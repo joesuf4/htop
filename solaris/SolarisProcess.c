@@ -35,7 +35,7 @@ typedef enum SolarisProcessFields {
    LWPID = 106,
    DM = 107,
    PSEC = 108,
-   SOLTTY_NR = 109, 
+   SOLTTY_NR = 109,
    LAST_PROCESSFIELD = 110,
 } SolarisProcessField;
 
@@ -214,7 +214,7 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
    }
    case SOLTTY_NR:{
       if ((major(sp->sol_tty_nr) < 10000) && (minor(sp->sol_tty_nr) < 10000)) {
-         xSnprintf(buffer, n, "%4lu:%4lu ", major(sp->sol_tty_nr), minor(sp->sol_tty_nr));
+         xSnprintf(buffer, n, "%4u:%4u ", major(sp->sol_tty_nr), minor(sp->sol_tty_nr));
       } else {
          xSnprintf(buffer, n, "          ");
       }

@@ -14,7 +14,7 @@ in the source distribution for its full text.
 #include "IncSet.h"
 #include "StringUtils.h"
 #include "FunctionBar.h"
-
+#include "solaris/SolarisProcess.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -35,8 +35,6 @@ typedef struct TraceScreen_ {
    bool tracing;
    int fdpair[2];
    int child;
-   FILE* strace;
-   int fd_strace;
    bool contLine;
    bool follow;
 } TraceScreen;
@@ -64,7 +62,7 @@ TraceScreen* TraceScreen_new(Process* process) {
    Object_setClass(this, Class(TraceScreen));
    this->tracing = true;
    this->contLine = false;
-   this->follow = false;
+   this->follow = true;
    FunctionBar* fuBar = FunctionBar_new(TraceScreenFunctions, TraceScreenKeys, TraceScreenEvents);
    CRT_disableDelay();
    return (TraceScreen*) InfoScreen_init(&this->super, process, fuBar, LINES-2, "");
@@ -75,7 +73,8 @@ void TraceScreen_delete(Object* cast) {
    if (this->child > 0) {
       kill(this->child, SIGTERM);
       waitpid(this->child, NULL, 0);
-      fclose(this->strace);
+      close(this->fdpair[0]);
+      close(this->fdpair[1]);
    }
    CRT_enableDelay();
    free(InfoScreen_done((InfoScreen*)cast));
@@ -84,51 +83,47 @@ void TraceScreen_delete(Object* cast) {
 void TraceScreen_draw(InfoScreen* this) {
    attrset(CRT_colors[COLOR_PANEL_HEADER_FOCUS]);
    mvhline(0, 0, ' ', COLS);
-   mvprintw(0, 0, "Trace of process %d - %s", this->process->pid, this->process->comm);
+   SolarisProcess *sp = (SolarisProcess *)this->process;
+   mvprintw(0, 0, "Trace of process %d/%d - %s", sp->realpid, sp->lwpid, sp->super.comm);
    attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
    IncSet_drawBar(this->inc);
 }
 
 bool TraceScreen_forkTracer(TraceScreen* this) {
    char buffer[1001];
-   int error = pipe(this->fdpair);
+   int error = pipe2(this->fdpair, O_NONBLOCK);
    if (error == -1) return false;
    this->child = fork();
    if (this->child == -1) return false;
    if (this->child == 0) {
       CRT_dropPrivileges();
       dup2(this->fdpair[1], STDERR_FILENO);
-      int ok = fcntl(this->fdpair[1], F_SETFL, O_NONBLOCK);
-      if (ok != -1) {
-         xSnprintf(buffer, sizeof(buffer), "%d", this->super.process->pid);
-         execlp("strace", "strace", "-s", "512", "-p", buffer, NULL);
-      }
-      const char* message = "Could not execute 'strace'. Please make sure it is available in your $PATH.";
+      SolarisProcess *sp = (SolarisProcess *)this->super.process;
+      xSnprintf(buffer, sizeof(buffer), "%d/%d", sp->realpid, sp->lwpid);
+      execlp("truss", "truss", "-vall", "-p", buffer, NULL);
+      const char* message = "Could not execute 'truss'. Please make sure it is available in your $PATH.";
       ssize_t written = write(this->fdpair[1], message, strlen(message));
       (void) written;
       exit(1);
    }
-   int ok = fcntl(this->fdpair[0], F_SETFL, O_NONBLOCK);
-   if (ok == -1) return false;
-   this->strace = fdopen(this->fdpair[0], "r");
-   this->fd_strace = fileno(this->strace);
+
    return true;
 }
 
 void TraceScreen_updateTrace(InfoScreen* super) {
    TraceScreen* this = (TraceScreen*) super;
-   char buffer[1001];
+   char buffer[10001];
    fd_set fds;
    FD_ZERO(&fds);
-// FD_SET(STDIN_FILENO, &fds);
-   FD_SET(this->fd_strace, &fds);
+   //   FD_SET(STDIN_FILENO, &fds);
+   FD_SET(this->fdpair[0], &fds);
    struct timeval tv;
    tv.tv_sec = 0; tv.tv_usec = 500;
-   int ready = select(this->fd_strace+1, &fds, NULL, NULL, &tv);
+   int ready = select(this->fdpair[0]+1, &fds, NULL, NULL, &tv);
    int nread = 0;
-   if (ready > 0 && FD_ISSET(this->fd_strace, &fds))
-      nread = fread(buffer, 1, 1000, this->strace);
-   if (nread && this->tracing) {
+   if (ready > 0 && FD_ISSET(this->fdpair[0], &fds))
+      nread = read(this->fdpair[0],buffer,10000);
+   if (nread > 0 && this->tracing) {
       char* line = buffer;
       buffer[nread] = '\0';
       for (int i = 0; i < nread; i++) {
@@ -169,6 +164,6 @@ bool TraceScreen_onKey(InfoScreen* super, int ch) {
          InfoScreen_draw(this);
          return true;
    }
-   this->follow = false;
+   //this->follow = false;
    return false;
 }
