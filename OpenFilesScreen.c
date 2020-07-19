@@ -66,7 +66,7 @@ OpenFilesScreen* OpenFilesScreen_new(Process* process) {
       this->pid = sp->lwpid;
    else
       this->pid = sp->realpid;
-   return (OpenFilesScreen*) InfoScreen_init(&this->super, process, NULL, LINES-3, "   FD TYPE     DEVICE       SIZE       NODE NAME");
+   return (OpenFilesScreen*) InfoScreen_init(&this->super, process, NULL, LINES-3, "pfiles + pmap output");
 }
 
 void OpenFilesScreen_delete(Object* this) {
@@ -74,7 +74,7 @@ void OpenFilesScreen_delete(Object* this) {
 }
 
 void OpenFilesScreen_draw(InfoScreen* this) {
-   InfoScreen_drawTitled(this, "Snapshot of files open in process %d - %s", ((OpenFilesScreen*)this)->pid, this->process->comm);
+   InfoScreen_drawTitled(this, "Snapshot of files open, and virual memory maps, in process %d - %s", ((OpenFilesScreen*)this)->pid, this->process->comm);
 }
 
 static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
