@@ -127,7 +127,9 @@ void TraceScreen_updateTrace(InfoScreen* super) {
       char* line = buffer;
       buffer[nread] = '\0';
       for (int i = 0; i < nread; i++) {
-         if (buffer[i] == '\n') {
+        if (buffer[i] == '\t')
+            buffer[i] = ' ';
+        if (buffer[i] == '\n') {
             buffer[i] = '\0';
             if (this->contLine) {
                InfoScreen_appendLine(&this->super, line);

@@ -78,8 +78,8 @@ void OpenFilesScreen_draw(InfoScreen* this) {
 }
 
 static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
-   char buffer[10025];
-   xSnprintf(buffer, 10024, "%d", pid);
+   char buffer[100025];
+   xSnprintf(buffer, 100024, "%d", pid);
    OpenFiles_ProcessData* pdata = xCalloc(1, sizeof(OpenFiles_ProcessData));
    OpenFiles_Data* item = &(pdata->data);
    int fdpair[2];
@@ -109,8 +109,10 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
       pdata->error = 1;
       return pdata;
    }
-   if (!WIFEXITED(wstatus))
+   if (!WIFEXITED(wstatus)) {
       pdata->error = 1;
+      return pdata;
+   }
    else
       pdata->error = WEXITSTATUS(wstatus);
 
@@ -131,22 +133,27 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
       execlp("pmap", "pmap", buffer, NULL);
       exit(127);
    }
+
+   close(fdpair[1]);
+   sleep(1);
+   int rv = read(fdpair[0], buffer, sizeof buffer - 1);
+   if (rv <= 0) {
+     pdata->error = 1;
+     return pdata;
+   }
+   buffer[rv] = 0;
+   item->data[0] = xStrdup(buffer);
+
    if (waitpid(child, &wstatus, 0) == -1) {
       pdata->error = 1;
       return pdata;
    }
-   if (!WIFEXITED(wstatus))
+   if (!WIFEXITED(wstatus)) {
       pdata->error = 1;
+      return pdata;
+   }
    else
       pdata->error = WEXITSTATUS(wstatus);
-
-   close(fdpair[1]);
-   int rv = read(fdpair[0], buffer, sizeof buffer - 1);
-   if (rv <= 0)
-     return pdata;
-   buffer[rv] = 0;
-   item->data[0] = xStrdup(buffer);
-
 
    close (fdpair[0]);
    return pdata;
