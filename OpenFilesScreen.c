@@ -177,9 +177,9 @@ void OpenFilesScreen_scan(InfoScreen* this) {
    Panel_prune(panel);
    OpenFiles_ProcessData* pdata = OpenFilesScreen_getProcessData(((OpenFilesScreen*)this)->pid);
    if (pdata->error == 127) {
-      InfoScreen_addLine(this, "Could not execute 'pfiles'. Please make sure it is available in your $PATH.");
+      InfoScreen_addLine(this, "Could not execute 'pfiles' or 'pmap'. Please make sure they are available in your $PATH.");
    } else if (pdata->error == 1) {
-      InfoScreen_addLine(this, "Failed listing open files.");
+      InfoScreen_addLine(this, "Failed listing 'pfiles' and 'pmap' output (possibly truncated).");
    }
    char *data;
    if (pdata && ((data = pdata->data.data[0]) != NULL)) {
