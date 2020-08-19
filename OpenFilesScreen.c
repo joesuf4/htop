@@ -104,24 +104,14 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
       execlp("pfiles", "pfiles", buffer, NULL);
       exit(127);
    }
-   int wstatus;
-   if (waitpid(child, &wstatus, 0) == -1) {
-      pdata->error = 1;
-      return pdata;
-   }
-   if (!WIFEXITED(wstatus)) {
-      pdata->error = 1;
-      return pdata;
-   }
-   else
-      pdata->error = WEXITSTATUS(wstatus);
 
-   child = fork();
-   if (child == -1) {
+
+   pid_t child2 = fork();
+   if (child2 == -1) {
       pdata->error = 1;
       return pdata;
    }
-   if (child == 0) {
+   if (child2 == 0) {
       close(fdpair[0]);
       dup2(fdpair[1], STDOUT_FILENO);
       close(fdpair[1]);
@@ -134,16 +124,22 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
       exit(127);
    }
 
-   close(fdpair[1]);
    sleep(1);
+   close(fdpair[1]);
    int rv = read(fdpair[0], buffer, sizeof buffer - 1);
+
+   close (fdpair[0]);
+
    if (rv <= 0) {
      pdata->error = 1;
      return pdata;
    }
-   buffer[rv] = 0;
-   item->data[0] = xStrdup(buffer);
 
+   buffer[rv] = 0;
+
+   item->data[0] = strdup(buffer);
+
+   int wstatus;
    if (waitpid(child, &wstatus, 0) == -1) {
       pdata->error = 1;
       return pdata;
@@ -155,7 +151,17 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
    else
       pdata->error = WEXITSTATUS(wstatus);
 
-   close (fdpair[0]);
+   if (waitpid(child2, &wstatus, 0) == -1) {
+      pdata->error = 1;
+      return pdata;
+   }
+   if (!WIFEXITED(wstatus)) {
+      pdata->error = 1;
+      return pdata;
+   }
+   else
+      pdata->error = WEXITSTATUS(wstatus);
+
    return pdata;
 }
 
@@ -171,9 +177,9 @@ void OpenFilesScreen_scan(InfoScreen* this) {
    Panel_prune(panel);
    OpenFiles_ProcessData* pdata = OpenFilesScreen_getProcessData(((OpenFilesScreen*)this)->pid);
    if (pdata->error == 127) {
-      InfoScreen_addLine(this, "Could not execute 'pfiles'. Please make sure it is available in your $PATH.");
+      InfoScreen_addLine(this, "Could not execute 'pfiles' or 'pmap'. Please make sure they are available in your $PATH.");
    } else if (pdata->error == 1) {
-      InfoScreen_addLine(this, "Failed listing open files.");
+      InfoScreen_addLine(this, "Failed listing 'pfiles' and 'pmap' output (possibly truncated).");
    }
    char *data;
    if (pdata && ((data = pdata->data.data[0]) != NULL)) {
